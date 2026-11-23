@@ -1,0 +1,9 @@
+# Runtime dependencies for the signature-verification Streamlit app.
+# Inference only: no training or evaluation dependencies (albumentations,
+# scikit-learn) are required.
+torch>=2.2
+torchvision>=0.17
+timm>=1.0
+opencv-python-headless>=4.8
+numpy>=1.26
+streamlit>=1.35

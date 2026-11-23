@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+# NOTE: best_model.pt is intentionally NOT ignored - the app needs it.
