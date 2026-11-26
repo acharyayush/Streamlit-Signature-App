@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "type": "weighted",
+  "features": [
+    "sim_ink_aspect_similarity",
+    "sim_stroke_width_similarity",
+    "x_endpoints_ratio",
+    "x_junctions_ratio",
+    "x_slant_diff",
+    "sim_density_similarity",
+    "h_proj",
+    "v_proj",
+    "sim_hu_similarity"
+  ],
+  "weights": {
+    "deep": 0.7000000000000001,
+    "hand": 0.29999999999999993
+  },
+  "coef": [],
+  "mean": [],
+  "scale": [],
+  "intercept": 0.0,
+  "dropped_features": [],
+  "threshold": 0.868862256410101,
+  "metadata": {
+    "fit_eer": 0.14114092799199898,
+    "grid": [
+      {
+        "deep_weight": 0.0,
+        "eer": 0.292422
+      },
+      {
+        "deep_weight": 0.05,
+        "eer": 0.25008
+      },
+      {
+        "deep_weight": 0.1,
+        "eer": 0.221304
+      },
+      {
+        "deep_weight": 0.15,
+        "eer": 0.198146
+      },
+      {
+        "deep_weight": 0.2,
+        "eer": 0.182707
+      },
+      {
+        "deep_weight": 0.25,
+        "eer": 0.17179
+      },
+      {
+        "deep_weight": 0.3,
+        "eer": 0.164847
+      },
+      {
+        "deep_weight": 0.35,
+        "eer": 0.157904
+      },
+      {
+        "deep_weight": 0.4,
+        "eer": 0.149957
+      },
+      {
+        "deep_weight": 0.45,
+        "eer": 0.147536
+      },
+      {
+        "deep_weight": 0.5,
+        "eer": 0.143014
+      },
+      {
+        "deep_weight": 0.55,
+        "eer": 0.14379
+      },
+      {
+        "deep_weight": 0.6,
+        "eer": 0.141689
+      },
+      {
+        "deep_weight": 0.65,
+        "eer": 0.141689
+      },
+      {
+        "deep_weight": 0.7,
+        "eer": 0.141141
+      },
+      {
+        "deep_weight": 0.75,
+        "eer": 0.141141
+      },
+      {
+        "deep_weight": 0.8,
+        "eer": 0.14379
+      },
+      {
+        "deep_weight": 0.85,
+        "eer": 0.146211
+      },
+      {
+        "deep_weight": 0.9,
+        "eer": 0.148312
+      },
+      {
+        "deep_weight": 0.95,
+        "eer": 0.149409
+      },
+      {
+        "deep_weight": 1.0,
+        "eer": 0.151282
+      }
+    ],
+    "already_preprocessed": true,
+    "references": 2,
+    "fusion_type": "weighted",
+    "cv_folds": 5,
+    "fit_unit": "query",
+    "signers": 74,
+    "fit_pairs": 7510,
+    "checkpoint": "/kaggle/working/repo/checkpoints/stage3/best_model.pt",
+    "manifest": "/kaggle/input/datasets/yogeshbaral/dataset-bh-cedar-thai-persian/preprocessed_newdataset/manifest.csv",
+    "target_far": 0.03,
+    "out_of_fold_far": 0.02959927140255009
+  }
+}

@@ -13,6 +13,7 @@ testing and ablations.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 import cv2
@@ -224,6 +225,41 @@ def preprocess_signature(
         # Area resampling blurs thin strokes into gray; a high cut keeps them as ink.
         resized = np.where(resized < 200, 0, 255).astype(np.uint8)
     return resized
+
+
+def load_preprocessed_image(
+    path: str | Path,
+    *,
+    already_preprocessed: bool = False,
+    ink: InkPolarity = "auto",
+) -> np.ndarray:
+    """Read one signature image and return the ``target_h x target_w`` uint8 grayscale.
+
+    This mirrors ``preprocessing.signature_preprocessing.load_preprocessed_image`` in the
+    main project so the bundled handcrafted-feature extractor can read images through the
+    exact same path the model uses. When ``already_preprocessed`` is true the file is
+    expected to be grayscale at :data:`DEFAULT_TARGET_SIZE`; otherwise Stage 2.2
+    preprocessing is applied.
+
+    Raises:
+        FileNotFoundError: If the file cannot be read.
+        ValueError: If a preprocessed image has the wrong shape, or the image has no ink.
+    """
+    image_path = Path(path)
+    read_mode = cv2.IMREAD_GRAYSCALE if already_preprocessed else cv2.IMREAD_COLOR
+    image = cv2.imread(str(image_path), read_mode)
+    if image is None:
+        raise FileNotFoundError(f"could not read signature image: {image_path}")
+
+    if already_preprocessed:
+        expected_shape = (DEFAULT_TARGET_SIZE[1], DEFAULT_TARGET_SIZE[0])
+        if image.shape != expected_shape:
+            raise ValueError(
+                f"preprocessed image {image_path} has shape {image.shape}; "
+                f"expected {expected_shape}"
+            )
+        return image
+    return preprocess_signature(image, ink=ink)
 
 
 def to_model_input(image: np.ndarray) -> np.ndarray:
