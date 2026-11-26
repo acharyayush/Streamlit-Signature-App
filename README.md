@@ -64,20 +64,21 @@ space quoted.
 
 ## What the app reports
 
-- **Results table** - one row per `(reference, test)` pair with the deep
-  similarity, the fused score, and both decisions.
-- **Score / decision matrices** - references as rows and tests as columns for the
-  active mode, so the whole grid is visible at a glance.
-- **Pair details** - an expandable per-pair view with the original and preprocessed
-  images and every score.
-- **Match percentage** - the active score x 100 (a presentation of the score, not
-  a calibrated probability).
-- **Decision** - `MATCH` when the active score is at or above its threshold, with a
-  borderline warning within `0.03` of the threshold.
-- Plus checkpoint metadata.
+- **One row per pair** - each `(reference, test)` pair is an always-open card
+  showing the two signature images (preprocessed, so all rows are uniform) plus:
+  - **Match percentage** - the active score x 100 (a presentation of the score,
+    not a calibrated probability).
+  - **Cosine similarity** - the deep cosine similarity of the two embeddings.
+  - **Threshold** - the active decision threshold.
+  - **Mode** - `deep` or `fused`.
+  - the decision (`MATCH` / `NO MATCH`, colour-coded) and, in fused mode, the
+    fused score.
+- **Summary** - scoring mode, threshold, pairs matched, and the grid size.
+- **Model details** - checkpoint metadata (phase, epoch, embedding dim, loss).
 
-Both thresholds are adjustable in the sidebar. Validate them on your own data
-before production use; the scores are not probabilities.
+For 2 references x 4 tests this is 8 open rows. Both thresholds are adjustable in
+the sidebar. Validate them on your own data before production use; the scores are
+not probabilities.
 
 ## Provenance
 

@@ -39,7 +39,6 @@ from typing import Any
 
 import cv2
 import numpy as np
-import pandas as pd
 import streamlit as st
 import torch
 
@@ -264,27 +263,23 @@ with st.sidebar:
         )
 
     with st.expander("Preprocessing details"):
-        st.write(
-            {
-                "mode": "binary black/white" if binarize else "grayscale",
-                "ink": "auto (dark ink on white)",
-                "target_size": "384 x 192 (width x height)",
-                "input_channels": "3 (grayscale repeated, ImageNet-normalized)",
-            }
+        st.markdown(
+            f"- **mode**: {'binary black/white' if binarize else 'grayscale'}\n"
+            "- **ink**: auto (dark ink on white)\n"
+            "- **target size**: 384 x 192 (width x height)\n"
+            "- **input channels**: 3 (grayscale repeated, ImageNet-normalized)"
         )
 
     if fusion_config is not None:
         with st.expander("Fusion configuration"):
-            st.write(
-                {
-                    "config": str(DEFAULT_FUSION_CONFIG.relative_to(PROJECT_ROOT)),
-                    "type": fusion_config.type,
-                    "deep_weight": round(fusion_config.deep_weight, 4),
-                    "hand_weight": round(fusion_config.hand_weight, 4),
-                    "features": list(fusion_config.features),
-                    "stored_threshold": fusion_config.threshold,
-                }
+            st.markdown(
+                f"- **config**: {DEFAULT_FUSION_CONFIG.relative_to(PROJECT_ROOT)}\n"
+                f"- **type**: {fusion_config.type}\n"
+                f"- **deep weight**: {fusion_config.deep_weight:.4f}\n"
+                f"- **hand weight**: {fusion_config.hand_weight:.4f}\n"
+                f"- **stored threshold**: {fusion_config.threshold}"
             )
+            st.caption("features: " + ", ".join(fusion_config.features))
     else:
         st.info(f"Fusion config not loaded: {fusion_error}")
 
@@ -332,7 +327,6 @@ except (FileNotFoundError, OSError, RuntimeError, TypeError, ValueError) as erro
 
 # Preprocess and encode every uploaded image once; the pair grid then reuses the
 # embeddings and handcrafted descriptors instead of recomputing them.
-reference_images: list[np.ndarray] = []
 reference_processed: list[np.ndarray] = []
 reference_embeddings: list[torch.Tensor] = []
 reference_descriptors: list[SignatureDescriptors | None] = []
@@ -344,12 +338,10 @@ for index, uploaded in enumerate(reference_files, start=1):
     except (TypeError, ValueError) as error:
         st.error(f"{label}: {error}")
         st.stop()
-    reference_images.append(image)
     reference_processed.append(processed)
     reference_embeddings.append(_embed(model, processed))
     reference_descriptors.append(_describe(processed))
 
-test_images: list[np.ndarray] = []
 test_processed: list[np.ndarray] = []
 test_embeddings: list[torch.Tensor] = []
 test_descriptors: list[SignatureDescriptors | None] = []
@@ -361,7 +353,6 @@ for index, uploaded in enumerate(test_files, start=1):
     except (TypeError, ValueError) as error:
         st.error(f"{label}: {error}")
         st.stop()
-    test_images.append(image)
     test_processed.append(processed)
     test_embeddings.append(_embed(model, processed))
     test_descriptors.append(_describe(processed))
@@ -409,17 +400,21 @@ active_decisions: list[str] = [
 ]
 
 
-st.subheader("Comparison results")
+st.subheader("Pair results")
+
 match_count = sum(1 for decision in active_decisions if decision == "MATCH")
 borderline_count = sum(
     1
     for score in active_scores
     if score is not None and abs(float(score) - active_threshold) <= REVIEW_BAND
 )
-st.info(
-    f"Scoring mode **{mode}** at threshold **{active_threshold:.4f}** - "
-    f"**{match_count}/{len(pairs)}** pairs matched. "
-    f"{len(reference_labels)} reference x {len(test_labels)} test images."
+
+summary_columns = st.columns(4)
+summary_columns[0].metric("Scoring mode", mode, border=True)
+summary_columns[1].metric("Threshold", f"{active_threshold:.4f}", border=True)
+summary_columns[2].metric("Pairs matched", f"{match_count}/{len(pairs)}", border=True)
+summary_columns[3].metric(
+    "Images", f"{len(reference_labels)} ref x {len(test_labels)} test", border=True
 )
 if borderline_count:
     st.warning(
@@ -427,111 +422,66 @@ if borderline_count:
         "manual review is recommended."
     )
 
-table_rows = []
-for pair, active_decision in zip(pairs, active_decisions):
-    reference_index = pair["reference_index"]
-    test_index = pair["test_index"]
-    table_rows.append(
-        {
-            "Pair": f"{reference_labels[reference_index]} x {test_labels[test_index]}",
-            "Reference": f"{reference_labels[reference_index]}: "
-            f"{reference_files[reference_index].name}",
-            "Test": f"{test_labels[test_index]}: {test_files[test_index].name}",
-            "Deep similarity": round(pair["deep"], 4),
-            "Deep decision": pair["deep_decision"],
-            "Fused score": "N/A" if pair["fused"] is None else round(pair["fused"], 4),
-            "Fused decision": pair["fused_decision"],
-            f"Active decision ({mode})": active_decision,
-        }
-    )
-st.dataframe(pd.DataFrame(table_rows), width="stretch", hide_index=True)
-st.caption(
-    "Deep similarity = cosine similarity x 100 when read as a percentage. "
-    "Fused score blends the deep score with the handcrafted features using fusion.json. "
-    "N/A marks a pair where an image had no measurable ink."
-)
+# One visible card per (reference, test) pair: the two signatures plus the match
+# percentage, cosine similarity, threshold and mode, rendered as UI elements.
+_DECISION_STYLE = {
+    "MATCH": ":green[**MATCH**]",
+    "NO MATCH": ":red[**NO MATCH**]",
+    "N/A": ":gray[**N/A**]",
+}
 
-st.subheader("Score matrix")
-st.caption(
-    f"Rows are references, columns are tests, cells hold the active ({mode}) score."
-)
-score_matrix = []
-for reference_index, reference_label in enumerate(reference_labels):
-    record: dict[str, Any] = {"Reference": reference_label}
-    for test_index, test_label in enumerate(test_labels):
-        score = active_scores[reference_index * len(test_labels) + test_index]
-        record[test_label] = "N/A" if score is None else round(float(score), 4)
-    score_matrix.append(record)
-st.dataframe(pd.DataFrame(score_matrix), width="stretch", hide_index=True)
-
-decision_matrix = []
-for reference_index, reference_label in enumerate(reference_labels):
-    record = {"Reference": reference_label}
-    for test_index, test_label in enumerate(test_labels):
-        decision = active_decisions[reference_index * len(test_labels) + test_index]
-        record[test_label] = {
-            "MATCH": "MATCH",
-            "NO MATCH": "NO MATCH",
-        }.get(decision, "N/A")
-    decision_matrix.append(record)
-st.dataframe(pd.DataFrame(decision_matrix), width="stretch", hide_index=True)
-
-st.subheader("Pair details")
 for position, pair in enumerate(pairs):
     reference_index = pair["reference_index"]
     test_index = pair["test_index"]
     active_score = active_scores[position]
     active_decision = active_decisions[position]
-    heading = (
-        f"{reference_labels[reference_index]} x {test_labels[test_index]} - "
-        f"{active_decision}"
-    )
-    with st.expander(heading):
-        image_columns = st.columns(2)
+    deep = pair["deep"]
+    fused = pair["fused"]
+
+    with st.container(border=True):
+        title_columns = st.columns([3, 1])
+        with title_columns[0]:
+            st.markdown(
+                f"**Pair {position + 1}: "
+                f"{reference_labels[reference_index]} x {test_labels[test_index]}**"
+                f" &nbsp;&nbsp; {_DECISION_STYLE.get(active_decision, active_decision)}"
+            )
+        with title_columns[1]:
+            st.caption(f"mode: {mode}")
+
+        image_columns = st.columns([1, 1, 1.3])
         with image_columns[0]:
             st.image(
-                reference_images[reference_index],
-                caption=f"Reference {reference_labels[reference_index]}: "
-                f"{reference_files[reference_index].name}",
-                channels="BGR",
-            )
-            st.image(
                 reference_processed[reference_index],
-                caption="Reference after preprocessing",
+                caption=f"Reference {reference_labels[reference_index]} "
+                f"({reference_files[reference_index].name})",
                 clamp=True,
+                width="stretch",
             )
         with image_columns[1]:
             st.image(
-                test_images[test_index],
-                caption=f"Test {test_labels[test_index]}: {test_files[test_index].name}",
-                channels="BGR",
-            )
-            st.image(
                 test_processed[test_index],
-                caption="Test after preprocessing",
+                caption=f"Test {test_labels[test_index]} "
+                f"({test_files[test_index].name})",
                 clamp=True,
+                width="stretch",
             )
-
-        deep = pair["deep"]
-        fused = pair["fused"]
-        st.write(
-            {
-                "Deep cosine similarity": round(deep, 4),
-                "Deep match percentage": f"{_match_percentage(deep):.2f}%",
-                "Deep decision": f"{pair['deep_decision']} "
-                f"(threshold {deep_threshold:.4f})",
-                "Fused score": "N/A" if fused is None else round(fused, 4),
-                "Fused decision": pair["fused_decision"]
-                + ("" if fused is None else f" (threshold {fused_threshold:.4f})"),
-                "Active mode": mode,
-                "Active score": "N/A" if active_score is None else round(float(active_score), 4),
-                "Active match percentage": (
+        with image_columns[2]:
+            metric_columns = st.columns(2)
+            with metric_columns[0]:
+                st.metric(
+                    "Match percentage",
                     "N/A"
                     if active_score is None
-                    else f"{_match_percentage(float(active_score)):.2f}%"
-                ),
-            }
-        )
+                    else f"{_match_percentage(float(active_score)):.2f}%",
+                    border=True,
+                )
+                st.metric("Threshold", f"{active_threshold:.4f}", border=True)
+            with metric_columns[1]:
+                st.metric("Cosine similarity", f"{deep:.4f}", border=True)
+                st.metric("Mode", mode, border=True)
+            if fused is not None:
+                st.caption(f"Fused score: {fused:.4f}")
 
 st.info(
     "The scores are model outputs, not calibrated probabilities or proof of "
@@ -541,16 +491,18 @@ st.info(
 
 with st.expander("Model details"):
     details = _format_metadata(checkpoint)
-    st.write(
-        {
-            "checkpoint": str(DEFAULT_CHECKPOINT.relative_to(PROJECT_ROOT)),
-            "checkpoint_sha256": hashlib.sha256(checkpoint_data).hexdigest(),
-            "reference_images": len(reference_files),
-            "test_images": len(test_files),
-            "pairs": len(pairs),
-            **details,
-            "checkpoint_preprocessing": checkpoint.get("preprocessing", {}),
-        }
+    detail_columns = st.columns(4)
+    detail_columns[0].metric("Phase", details["phase"], border=True)
+    detail_columns[1].metric("Epoch", details["epoch"], border=True)
+    detail_columns[2].metric("Embedding dim", details["embedding_dim"], border=True)
+    detail_columns[3].metric(
+        "Best validation loss", details["best_validation_loss"], border=True
+    )
+    st.caption(f"checkpoint: {DEFAULT_CHECKPOINT.relative_to(PROJECT_ROOT)}")
+    st.caption(f"checkpoint sha256: {hashlib.sha256(checkpoint_data).hexdigest()}")
+    st.caption(
+        f"references: {len(reference_files)} | tests: {len(test_files)} | "
+        f"pairs: {len(pairs)}"
     )
     st.caption(
         "Match percentage = score x 100. Embeddings are L2-normalized, so the dot "
